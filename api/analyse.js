@@ -1,36 +1,42 @@
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01'
-    },
-    body: JSON.stringify(req.body)
-  });
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(req.body)
+    });
 
-  const data = await response.json();
-  res.status(200).json(data);
+    const data = await response.json();
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('API error:', error);
+    return res.status(500).json({ error: error.message });
+  }
 }
 ```
 
-Press **Command + S** to save.
-
-Now open your `index.html` file and find this line:
+Press **Command + S**, then in Terminal:
 ```
-const response = await fetch('https://api.anthropic.com/v1/messages', {
+git add .
 ```
-
-Replace it with:
 ```
-const response = await fetch('/api/analyse', {
+git commit -m "fix api route error handling"
 ```
-
-And delete these three lines just below it (we no longer need them as the server handles this):
 ```
-'x-api-key': 'ANTHROPIC_API_KEY',
-'anthropic-version': '2023-06-01'
+git push
