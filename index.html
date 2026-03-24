@@ -150,14 +150,24 @@ input.addEventListener('input', () => {
           })
         });
 
-        const data = await response.json();
+        cconst data = await response.json();
         loading.style.display = 'none';
         result.style.display = 'block';
-        result.textContent = data.content[0].text;
+        if (data.content && data.content[0]) {
+          result.textContent = data.content[0].text;
+        } else {
+          result.textContent = 'Error: ' + JSON.stringify(data);
+        }
         btn.disabled = false;
       };
 
       reader.readAsDataURL(file);
+      } catch (error) {
+        loading.style.display = 'none';
+        result.style.display = 'block';
+        result.textContent = 'Error: ' + error.message;
+        btn.disabled = false;
+      }
     });
   </script>
 
