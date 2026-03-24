@@ -92,6 +92,20 @@
         preview.src = e.target.result;
         preview.style.display = 'block';
         btn.disabled = false;
+        btn.style.background = '#6c63ff';
+      };
+      reader.readAsDataURL(file);
+    });
+
+input.addEventListener('input', () => {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        btn.disabled = false;
+        btn.style.background = '#6c63ff';
       };
       reader.readAsDataURL(file);
     });
