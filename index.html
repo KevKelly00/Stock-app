@@ -24,14 +24,14 @@
       text-align: center;
       margin: 20px 0;
     }
-    img#preview {
+    #preview {
       max-width: 100%;
       border-radius: 8px;
       margin-top: 16px;
       display: none;
     }
-    button {
-      background: #6c63ff;
+    #analyseBtn {
+      background: #aaa;
       color: white;
       border: none;
       padding: 14px 28px;
@@ -41,8 +41,8 @@
       width: 100%;
       margin-top: 12px;
     }
-    button:disabled {
-      background: #aaa;
+    #analyseBtn.ready {
+      background: #6c63ff;
     }
     #result {
       background: white;
@@ -71,10 +71,8 @@
     <img id="preview" alt="Preview" />
   </div>
 
-  <button id="analyseBtn" disabled>Analyse Stock</button>
-
+  <button id="analyseBtn">Analyse Stock</button>
   <div id="loading">Analysing your stock, please wait...</div>
-
   <div id="result"></div>
 
   <script>
@@ -84,49 +82,39 @@
     const result = document.getElementById('result');
     const loading = document.getElementById('loading');
 
-    input.addEventListener('change', () => {
-      const file = input.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        preview.src = e.target.result;
-        preview.style.display = 'block';
-        btn.disabled = false;
-        btn.style.background = '#6c63ff';
-      };
-      reader.readAsDataURL(file);
-    });
+    let imageBase64 = null;
+    let imageMimeType = null;
 
-input.addEventListener('input', () => {
-      const file = input.files[0];
+    function handleFile(file) {
       if (!file) return;
+      imageMimeType = file.type;
       const reader = new FileReader();
       reader.onload = (e) => {
+        imageBase64 = e.target.result.split(',')[1];
         preview.src = e.target.result;
         preview.style.display = 'block';
-        btn.disabled = false;
-        btn.style.background = '#6c63ff';
+        btn.classList.add('ready');
       };
       reader.readAsDataURL(file);
-    });
+    }
+
+    input.addEventListener('change', () => handleFile(input.files[0]));
+    input.addEventListener('input', () => handleFile(input.files[0]));
 
     btn.addEventListener('click', async () => {
-      const file = input.files[0];
-      if (!file) return;
+      if (!imageBase64) {
+        alert('Please select a photo first');
+        return;
+      }
 
-      btn.disabled = true;
       loading.style.display = 'block';
       result.style.display = 'none';
+      btn.classList.remove('ready');
 
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target.result.split(',')[1];
-
+      try {
         const response = await fetch('/api/analyse', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: 'claude-opus-4-20250514',
             max_tokens: 1024,
@@ -137,8 +125,8 @@ input.addEventListener('input', () => {
                   type: 'image',
                   source: {
                     type: 'base64',
-                    media_type: file.type,
-                    data: base64
+                    media_type: imageMimeType,
+                    data: imageBase64
                   }
                 },
                 {
@@ -150,24 +138,23 @@ input.addEventListener('input', () => {
           })
         });
 
-        cconst data = await response.json();
+        const data = await response.json();
         loading.style.display = 'none';
         result.style.display = 'block';
-        if (data.content && data.content[0]) {
+
+        if (data.content && data.content[0] && data.content[0].text) {
           result.textContent = data.content[0].text;
         } else {
-          result.textContent = 'Error: ' + JSON.stringify(data);
+          result.textContent = 'Unexpected response: ' + JSON.stringify(data);
         }
-        btn.disabled = false;
-      };
 
-      reader.readAsDataURL(file);
       } catch (error) {
         loading.style.display = 'none';
         result.style.display = 'block';
         result.textContent = 'Error: ' + error.message;
-        btn.disabled = false;
       }
+
+      btn.classList.add('ready');
     });
   </script>
 
