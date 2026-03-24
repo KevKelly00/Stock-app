@@ -29,14 +29,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: error.message });
   }
 }
-```
-
-Press **Command + S**, then in Terminal:
-```
-git add .
-```
-```
-git commit -m "fix api route error handling"
-```
-```
-git push
