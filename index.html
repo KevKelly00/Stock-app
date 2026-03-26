@@ -7,7 +7,7 @@
   <style>
     body {
       font-family: sans-serif;
-      max-width: 600px;
+      max-width: 700px;
       margin: 0 auto;
       padding: 20px;
       background: #f5f5f5;
@@ -15,6 +15,12 @@
     h1 {
       color: #333;
       text-align: center;
+    }
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 30px;
+      margin: 20px 0;
     }
     .upload-area {
       background: white;
@@ -30,8 +36,7 @@
       margin-top: 16px;
       display: none;
     }
-    #analyseBtn {
-      background: #aaa;
+    button {
       color: white;
       border: none;
       padding: 14px 28px;
@@ -41,8 +46,51 @@
       width: 100%;
       margin-top: 12px;
     }
+    #loginBtn {
+      background: #6c63ff;
+    }
+    #analyseBtn {
+      background: #aaa;
+    }
     #analyseBtn.ready {
       background: #6c63ff;
+    }
+    #downloadBtn {
+      background: #28a745;
+    }
+    input[type="password"], input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      margin-top: 8px;
+      box-sizing: border-box;
+    }
+    #loading {
+      text-align: center;
+      color: #666;
+      margin-top: 16px;
+      display: none;
+    }
+    #results-area {
+      display: none;
+      margin-top: 20px;
+    }
+    #errorMsg {
+      background: #fff3f3;
+      border: 1px solid #ffcccc;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      color: #cc0000;
+      display: none;
+    }
+    #loginError {
+      color: #cc0000;
+      font-size: 14px;
+      margin-top: 8px;
+      display: none;
     }
     #result {
       background: white;
@@ -53,37 +101,84 @@
       white-space: pre-wrap;
       line-height: 1.6;
     }
-    #loading {
-      text-align: center;
-      color: #666;
-      margin-top: 16px;
-      display: none;
-    }
   </style>
 </head>
 <body>
 
   <h1>Salon Stock Take</h1>
 
-  <div class="upload-area">
-    <p>Take a photo or upload an image of your stock</p>
-    <input type="file" id="photoInput" accept="image/*" />
-    <img id="preview" alt="Preview" />
+  <!-- Login Screen -->
+  <div id="loginScreen" class="card">
+    <p style="color:#555; margin-top:0;">Enter the password to access the app.</p>
+    <input type="password" id="passwordInput" placeholder="Enter password" />
+    <p id="loginError">Incorrect password, please try again.</p>
+    <button id="loginBtn">Log In</button>
   </div>
 
-  <button id="analyseBtn">Analyse Stock</button>
-  <div id="loading">Analysing your stock, please wait...</div>
-  <div id="result"></div>
+  <!-- App Screen (hidden until logged in) -->
+  <div id="appScreen" style="display:none;">
+    <div class="upload-area">
+      <p>Take a photo or upload an image of your stock</p>
+      <input type="file" id="photoInput" accept="image/*" />
+      <img id="preview" alt="Preview" />
+    </div>
+
+    <button id="analyseBtn">Analyse Stock</button>
+    <div id="loading">Analysing your stock, please wait...</div>
+    <div id="errorMsg"></div>
+    <div id="result"></div>
+  </div>
 
   <script>
+    const loginScreen = document.getElementById('loginScreen');
+    const appScreen = document.getElementById('appScreen');
+    const passwordInput = document.getElementById('passwordInput');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginError = document.getElementById('loginError');
+
     const input = document.getElementById('photoInput');
     const preview = document.getElementById('preview');
     const btn = document.getElementById('analyseBtn');
-    const result = document.getElementById('result');
     const loading = document.getElementById('loading');
+    const errorMsg = document.getElementById('errorMsg');
+    const result = document.getElementById('result');
 
     let imageBase64 = null;
     let imageMimeType = null;
+
+    // Check if already logged in
+    if (sessionStorage.getItem('loggedIn') === 'true') {
+      loginScreen.style.display = 'none';
+      appScreen.style.display = 'block';
+    }
+
+    async function login() {
+      const password = passwordInput.value;
+      if (!password) return;
+
+      const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        sessionStorage.setItem('loggedIn', 'true');
+        loginScreen.style.display = 'none';
+        appScreen.style.display = 'block';
+        loginError.style.display = 'none';
+      } else {
+        loginError.style.display = 'block';
+        passwordInput.value = '';
+      }
+    }
+
+    loginBtn.addEventListener('click', login);
+    passwordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') login();
+    });
 
     function handleFile(file) {
       if (!file) return;
@@ -109,6 +204,7 @@
 
       loading.style.display = 'block';
       result.style.display = 'none';
+      errorMsg.style.display = 'none';
       btn.classList.remove('ready');
 
       try {
@@ -133,8 +229,8 @@
 
       } catch (error) {
         loading.style.display = 'none';
-        result.style.display = 'block';
-        result.textContent = 'Error: ' + error.message;
+        errorMsg.textContent = 'Error: ' + error.message;
+        errorMsg.style.display = 'block';
       }
 
       btn.classList.add('ready');
