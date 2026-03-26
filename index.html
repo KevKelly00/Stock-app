@@ -116,25 +116,8 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'claude-opus-4-20250514',
-            max_tokens: 1024,
-            messages: [{
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: imageMimeType,
-                    data: imageBase64
-                  }
-                },
-                {
-                  type: 'text',
-                  text: 'You are a stock taking assistant for a hairdressing salon. Look at this image and list all the hair products you can identify. For each product, describe what it is (e.g. shampoo, conditioner, hair dye, styling product) and the brand if visible. Be concise and clear.'
-                }
-              ]
-            }]
+            imageBase64: imageBase64,
+            mimeType: imageMimeType
           })
         });
 
@@ -142,8 +125,8 @@
         loading.style.display = 'none';
         result.style.display = 'block';
 
-        if (data.content && data.content[0] && data.content[0].text) {
-          result.textContent = data.content[0].text;
+        if (data.candidates && data.candidates[0]) {
+          result.textContent = data.candidates[0].content.parts[0].text;
         } else {
           result.textContent = 'Unexpected response: ' + JSON.stringify(data);
         }
