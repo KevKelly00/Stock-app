@@ -206,7 +206,6 @@
     }
 
     input.addEventListener('change', () => handleFiles(input.files));
-    input.addEventListener('input', () => handleFiles(input.files));
 
     function readFileAsBase64(file) {
       return new Promise((resolve) => {
