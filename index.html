@@ -30,11 +30,17 @@
       text-align: center;
       margin: 20px 0;
     }
-    #preview {
-      max-width: 100%;
-      border-radius: 8px;
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
       margin-top: 16px;
-      display: none;
+    }
+    .preview-grid img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 8px;
     }
     button {
       color: white;
@@ -46,18 +52,9 @@
       width: 100%;
       margin-top: 12px;
     }
-    #loginBtn {
-      background: #6c63ff;
-    }
-    #analyseBtn {
-      background: #aaa;
-    }
-    #analyseBtn.ready {
-      background: #6c63ff;
-    }
-    #downloadBtn {
-      background: #28a745;
-    }
+    #loginBtn { background: #6c63ff; }
+    #analyseBtn { background: #aaa; }
+    #analyseBtn.ready { background: #6c63ff; }
     input[type="password"], input[type="file"] {
       width: 100%;
       padding: 12px;
@@ -73,9 +70,12 @@
       margin-top: 16px;
       display: none;
     }
-    #results-area {
+    #progress {
+      font-size: 14px;
+      color: #6c63ff;
+      text-align: center;
+      margin-top: 8px;
       display: none;
-      margin-top: 20px;
     }
     #errorMsg {
       background: #fff3f3;
@@ -101,6 +101,12 @@
       white-space: pre-wrap;
       line-height: 1.6;
     }
+    #photoCount {
+      font-size: 14px;
+      color: #6c63ff;
+      margin-top: 8px;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -115,16 +121,18 @@
     <button id="loginBtn">Log In</button>
   </div>
 
-  <!-- App Screen (hidden until logged in) -->
+  <!-- App Screen -->
   <div id="appScreen" style="display:none;">
     <div class="upload-area">
-      <p>Take a photo or upload an image of your stock</p>
-      <input type="file" id="photoInput" accept="image/*" />
-      <img id="preview" alt="Preview" />
+      <p>Select one or more photos of your stock</p>
+      <input type="file" id="photoInput" accept="image/*" multiple />
+      <p id="photoCount"></p>
+      <div class="preview-grid" id="previewGrid"></div>
     </div>
 
     <button id="analyseBtn">Analyse Stock</button>
     <div id="loading">Analysing your stock, please wait...</div>
+    <div id="progress"></div>
     <div id="errorMsg"></div>
     <div id="result"></div>
   </div>
@@ -137,16 +145,16 @@
     const loginError = document.getElementById('loginError');
 
     const input = document.getElementById('photoInput');
-    const preview = document.getElementById('preview');
+    const previewGrid = document.getElementById('previewGrid');
+    const photoCount = document.getElementById('photoCount');
     const btn = document.getElementById('analyseBtn');
     const loading = document.getElementById('loading');
+    const progress = document.getElementById('progress');
     const errorMsg = document.getElementById('errorMsg');
     const result = document.getElementById('result');
 
-    let imageBase64 = null;
-    let imageMimeType = null;
+    let selectedFiles = [];
 
-    // Check if already logged in
     if (sessionStorage.getItem('loggedIn') === 'true') {
       loginScreen.style.display = 'none';
       appScreen.style.display = 'block';
@@ -155,15 +163,12 @@
     async function login() {
       const password = passwordInput.value;
       if (!password) return;
-
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password })
       });
-
       const data = await response.json();
-
       if (data.success) {
         sessionStorage.setItem('loggedIn', 'true');
         loginScreen.style.display = 'none';
@@ -180,55 +185,85 @@
       if (e.key === 'Enter') login();
     });
 
-    function handleFile(file) {
-      if (!file) return;
-      imageMimeType = file.type;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        imageBase64 = e.target.result.split(',')[1];
-        preview.src = e.target.result;
-        preview.style.display = 'block';
-        btn.classList.add('ready');
-      };
-      reader.readAsDataURL(file);
+    function handleFiles(files) {
+      if (!files || files.length === 0) return;
+      selectedFiles = Array.from(files);
+
+      previewGrid.innerHTML = '';
+      selectedFiles.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          previewGrid.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+
+      photoCount.textContent = `${selectedFiles.length} photo${selectedFiles.length > 1 ? 's' : ''} selected`;
+      photoCount.style.display = 'block';
+      btn.classList.add('ready');
     }
 
-    input.addEventListener('change', () => handleFile(input.files[0]));
-    input.addEventListener('input', () => handleFile(input.files[0]));
+    input.addEventListener('change', () => handleFiles(input.files));
+    input.addEventListener('input', () => handleFiles(input.files));
+
+    function readFileAsBase64(file) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve({
+            base64: e.target.result.split(',')[1],
+            mimeType: file.type
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function analysePhoto(base64, mimeType, index) {
+      const response = await fetch('/api/analyse', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mimeType })
+      });
+      const data = await response.json();
+      if (data.content && data.content[0] && data.content[0].text) {
+        return `--- Photo ${index + 1} ---\n${data.content[0].text}`;
+      } else {
+        return `--- Photo ${index + 1} ---\nCould not analyse this photo.`;
+      }
+    }
 
     btn.addEventListener('click', async () => {
-      if (!imageBase64) {
-        alert('Please select a photo first');
+      if (selectedFiles.length === 0) {
+        alert('Please select at least one photo first');
         return;
       }
 
       loading.style.display = 'block';
+      progress.style.display = 'block';
       result.style.display = 'none';
       errorMsg.style.display = 'none';
       btn.classList.remove('ready');
 
       try {
-        const response = await fetch('/api/analyse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageBase64: imageBase64,
-            mimeType: imageMimeType
-          })
-        });
-
-        const data = await response.json();
-        loading.style.display = 'none';
-        result.style.display = 'block';
-
-        if (data.content && data.content[0] && data.content[0].text) {
-          result.textContent = data.content[0].text;
-        } else {
-          result.textContent = 'Unexpected response: ' + JSON.stringify(data);
+        const results = [];
+        for (let i = 0; i < selectedFiles.length; i++) {
+          progress.textContent = `Analysing photo ${i + 1} of ${selectedFiles.length}...`;
+          const { base64, mimeType } = await readFileAsBase64(selectedFiles[i]);
+          const text = await analysePhoto(base64, mimeType, i);
+          results.push(text);
         }
+
+        loading.style.display = 'none';
+        progress.style.display = 'none';
+        result.style.display = 'block';
+        result.textContent = results.join('\n\n');
 
       } catch (error) {
         loading.style.display = 'none';
+        progress.style.display = 'none';
         errorMsg.textContent = 'Error: ' + error.message;
         errorMsg.style.display = 'block';
       }
