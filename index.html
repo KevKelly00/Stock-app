@@ -125,8 +125,8 @@
         loading.style.display = 'none';
         result.style.display = 'block';
 
-        if (data.candidates && data.candidates[0]) {
-          result.textContent = data.candidates[0].content.parts[0].text;
+        if (data.content && data.content[0] && data.content[0].text) {
+          result.textContent = data.content[0].text;
         } else {
           result.textContent = 'Unexpected response: ' + JSON.stringify(data);
         }

@@ -14,28 +14,35 @@ export default async function handler(req, res) {
   try {
     const { imageBase64, mimeType } = req.body;
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: imageBase64
-                }
-              },
-              {
-                text: 'You are a stock taking assistant for a hairdressing salon. Look at this image and list all the hair products you can identify. For each product, describe what it is (e.g. shampoo, conditioner, hair dye, styling product) and the brand if visible. Be concise and clear.'
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-20250514',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mimeType,
+                data: imageBase64
               }
-            ]
-          }]
-        })
-      }
-    );
+            },
+            {
+              type: 'text',
+              text: 'You are a stock taking assistant for a hairdressing salon. Look at this image and list all the hair products you can identify. For each product, describe what it is (e.g. shampoo, conditioner, hair dye, styling product) and the brand if visible. Be concise and clear.'
+            }
+          ]
+        }]
+      })
+    });
 
     const data = await response.json();
     return res.status(200).json(data);
